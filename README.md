@@ -1,4 +1,5 @@
-# stock-adept-ai-project
+# stock-adept-ai
 Automated Data Engineering Pipeline for Stock Market Trend Analysis and Intelligent Investment Insights
 
-connectd?
+
+improvement is going one step further
