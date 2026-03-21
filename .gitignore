@@ -211,6 +211,5 @@ dbt/
 gfin-stock-pipeline-kafka/
 mail-bigquery-system/
 mail-temp-config/
-nse-holiday/
 workflow/
 yfin-stock-ingestion/
