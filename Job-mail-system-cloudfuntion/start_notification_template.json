@@ -1,0 +1,6 @@
+{
+  "to_mail": "User@gmail.com",
+  "subject": "Today's VM is ready.",
+  "content_type": "html",
+   "content1": "<h2> Hello Nilesh!</h2><p>Your VM has been successfully started.</p><p>🔗 <strong>VM URL:</strong> <a href='[VM_URL]'>Open VM</a></p><p>📊 <strong>Dashboard:</strong> <a href='[DASH]'>View Dashboard</a></p><p>— <strong>GOOD MORNING</strong></p>"
+}

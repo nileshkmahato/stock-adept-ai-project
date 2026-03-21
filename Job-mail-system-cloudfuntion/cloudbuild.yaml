@@ -1,0 +1,8 @@
+steps:
+  # Step 1: Copy code folder to GCP Bucket
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gsutil'
+    args: ['-m', 'cp', '-r', './mail-temp-config/*', 'gs://<YOUR_GCS_BUCKET_NAME>/mail-temp_config/']
+
+options:
+  logging: CLOUD_LOGGING_ONLY
