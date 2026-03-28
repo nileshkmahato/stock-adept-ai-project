@@ -209,6 +209,5 @@ __marimo__/
 daily_recomendation_mail_system/
 dbt/
 gfin-stock-pipeline-kafka/
-mail-bigquery-system/
 mail-temp-config/
 workflow/
