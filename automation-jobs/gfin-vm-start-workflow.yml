@@ -1,0 +1,119 @@
+# --------------------------------------------------
+# START VM SCRAPING WORKFLOW PIPELINE -- triggered by GitHub Actions
+# --------------------------------------------------
+# This workflow automates the process of starting a GCP Compute Engine VM,
+# waiting for it to boot, retrieving its external IP, and launching a Flask
+# application via a startup script. Once the app is initialized, the workflow
+# triggers a scraping job through the VM’s API endpoint and logs the results.
+# It returns job status along with monitoring and dashboard access URLs.
+# --------------------------------------------------
+
+main:
+  steps:
+    - start_vm:
+        call: googleapis.compute.v1.instances.start
+        args:
+          project: [YOUR_PROJECT_ID]
+          zone: [YOUR_ZONE]
+          instance: [YOUR_INSTANCE_NAME]
+    
+    - wait_for_boot:
+        call: sys.sleep
+        args:
+          seconds: 30 # VM starts quickly; we just need the IP to be ready
+
+    - get_vm_info_initial:
+        call: googleapis.compute.v1.instances.get
+        args:
+          project: [YOUR_PROJECT_ID]
+          zone: [YOUR_ZONE]
+          instance: [YOUR_INSTANCE_NAME]
+        result: vm_details
+
+    - assign_vars:
+        assign:
+          - vm_ip: ${vm_details.networkInterfaces[0].accessConfigs[0].natIP}
+          - current_fingerprint: ${vm_details.metadata.fingerprint}
+
+    - log_ip_info:
+        call: sys.log
+        args:
+          data: ${"Detected External IP:" + vm_ip}
+
+    - start_flask_app:
+        call: googleapis.compute.v1.instances.setMetadata
+        args:
+          project: [YOUR_PROJECT_ID]
+          zone: [YOUR_ZONE]
+          instance: [YOUR_INSTANCE_NAME]
+          body:
+            fingerprint: ${current_fingerprint}
+            items:
+              - key: startup-script
+                value: |
+                  #!/bin/bash
+                  cd /home/[YOUR_USERNAME]/CODE
+                  source venv/bin/activate
+                  pkill -f controller.py || true
+                  nohup python controller.py > /tmp/flask.log 2>&1 &
+    
+    - wait_for_app_init:
+        call: sys.sleep
+        args:
+          seconds: 10
+
+    # - wait_for_server_to_respond:
+    #     try:
+    #       call: http.get
+    #       args:
+    #         url: ${"http://" + vm_ip + ":8081/health"}
+    #         timeout: 5
+    #       result: health_status
+    #     retry:
+    #       predicate: ${http.default_retry_predicate}
+    #       max_retries: 15
+    #       backoff:
+    #         initial_delay: 10
+    #         max_delay: 30
+    #         multiplier: 1.2
+
+    - log_ready_state:
+        call: sys.log
+        args:
+          data: "Server is UP and Health Check passed. Starting job now..."
+
+    - run_scraping_job:
+        call: http.post
+        args:
+          url: ${"http://" + vm_ip + ":8081/api/start"}
+          timeout: 900 # 15 minutes - give it plenty of time to work
+        result: job_response
+
+# ---------
+    - mail_init:
+        assign:
+          - project_id: ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
+          - location: "us-central1"
+          - workflow_name: "mail_notification"
+          # Create the object
+          - raw_args:
+              VM_URL: ${"http://" + vm_ip + ":8081"}
+              DASH: ${"http://" + vm_ip + ":8080"}
+
+    - mail_send:
+        call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.create
+        args:
+            # The parent is the full path to the workflow you want to run
+            parent: ${"projects/" + project_id + "/locations/" + location + "/workflows/" + workflow_name}
+            body:
+                # IMPORTANT: The arguments must be converted to a JSON string
+                argument: ${json.encode_to_string(raw_args)}
+        result: r1
+# ------------
+
+    - finish:
+        return:
+          job_status: ${job_response.body}
+          access_url: ${"http://" + vm_ip + ":8081"}
+          mail_result: ${r1}
+          message: "Workflow completed successfully"

@@ -1,0 +1,82 @@
+# --------------------------------------------------
+# VM STOP AND CLEANUP WORKFLOW -- triggered by GitHub Actions
+# --------------------------------------------------
+# This workflow automates the safe shutdown of a GCP Compute Engine VM
+# running a Flask-based scraping service. It:
+# 1. Retrieves VM details and checks if the instance is running.
+# 2. Stops the Flask job gracefully via its API endpoint, with retries.
+# 3. Logs the cleanup response and waits briefly for processes to finish.
+# 4. Initiates VM shutdown and returns status details along with a
+#    confirmation message.
+# Includes a custom retry policy for handling transient errors.
+# --------------------------------------------------
+
+main:
+  steps:
+    - get_vm_info:
+        call: googleapis.compute.v1.instances.get
+        args:
+          project: [YOUR_PROJECT_ID]
+          zone: us-central1-c
+          instance: [YOUR_VM_INSTANCE_NAME]
+        result: vm_details
+
+    - check_if_running:
+        switch:
+          - condition: ${vm_details.status != "RUNNING"}
+            return: "VM is not running. Nothing to stop."
+
+    - assign_ip:
+        assign:
+          - vm_ip: ${vm_details.networkInterfaces[0].accessConfigs[0].natIP}
+
+    - stop_flask_job:
+        try:
+          call: http.post
+          args:
+            url: ${"http://" + vm_ip + ":8081/api/stop"}
+            timeout: 30
+          result: stop_response
+        retry:
+          # Using a custom policy in case the app is hanging
+          predicate: ${custom_retry_policy}
+          max_retries: 5
+          backoff:
+            initial_delay: 2
+            max_delay: 10
+            multiplier: 2
+
+    - log_stop_request:
+        call: sys.log
+        args:
+          # Fixed the TypeError here
+          data: ${"Flask cleanup triggered:" + json.encode_to_string(stop_response.body)}
+
+    - wait_for_cleanup:
+        call: sys.sleep
+        args:
+          seconds: 10 
+
+    - stop_vm_instance:
+        call: googleapis.compute.v1.instances.stop
+        args:
+          project: [YOUR_PROJECT_ID]
+          zone: us-central1-c
+          instance: [YOUR_VM_INSTANCE_NAME]
+        result: stop_result
+
+    - finish:
+        return: 
+          message: "Scraper services stopped and VM shutdown initiated."
+          vm_stop_details: ${stop_result}
+
+# Standard custom retry policy
+custom_retry_policy:
+  params: [e]
+  steps:
+    - check_retriable:
+        switch:
+          - condition: ${e.code == 404 or e.code >= 500}
+            return: true
+    - stop_retrying:
+        return: false

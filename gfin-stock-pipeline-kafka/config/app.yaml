@@ -1,0 +1,21 @@
+kafka:
+  bootstrap_servers: ["localhost:9092"]
+  topic: stock_ticks
+
+stocks:
+  exchange: NSE
+  tickers:
+    - TCS
+    - INFY
+    - RELIANCE
+
+runtime:
+  scrape_interval_sec: 60
+
+storage:
+  gcs_bucket: your-gcs-bucket-name
+  gcs_prefix: gfin_daily_data
+  bq:
+    project_id: your-gcp-project-id
+    dataset: stock_data_raw
+    table: gfin_stock_ticks_ext
