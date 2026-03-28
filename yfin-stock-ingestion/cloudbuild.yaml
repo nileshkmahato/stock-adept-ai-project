@@ -1,0 +1,45 @@
+# Cloud Build configuration to build a Docker image, push it to Google Container Registry (GCR),
+# and update an existing Cloud Run Job with the newly built image.
+# Replace the substitution variables below with your own GCP configurations.
+
+steps:
+
+  # Step 1: Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      [
+        'build',
+        '-t',
+        'gcr.io/$_PROJECT_ID/stock-ingestion:latest',
+        './yfin-stock-ingestion'
+      ]
+
+  # Step 2: Push
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      [
+        'push',
+        'gcr.io/$_PROJECT_ID/stock-ingestion:latest'
+      ]
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      [ 'config','set','project', '$_PROJECT_ID']
+
+  # Step 3: Update Cloud Run Job
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      [
+        'run',
+        'jobs',
+        'update',
+        'yfin-stock-ingestion-job',
+        '--image',
+        'gcr.io/$_PROJECT_ID/stock-ingestion:latest',
+        '--region',
+        'us-central1'
+      ]
+      
+options:
+  logging: CLOUD_LOGGING_ONLY

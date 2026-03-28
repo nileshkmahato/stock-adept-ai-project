@@ -1,0 +1,8 @@
+jugaad-data
+yfinance
+pandas
+ta
+requests
+python-dotenv
+pytz
+google-cloud-bigquery

@@ -1,0 +1,60 @@
+# ==============================================================================
+# cloudbuild.yaml
+# ==============================================================================
+# This Cloud Build configuration automates the CI/CD pipeline for the daily 
+# recommendation mail system. It performs the following steps:
+# 1. Builds a Docker image from the source code.
+# 2. Pushes the built Docker image to Google Artifact Registry.
+# 3. Updates the existing Google Cloud Run Job with the newly pushed image.
+#
+# Note: Variables starting with $_ are substitution variables. $_PROJECT_ID is 
+# provided automatically by Cloud Build. The others should be defined in your 
+# Cloud Build Trigger settings.
+# ==============================================================================
+
+steps:
+
+# Step 1: Build image from subfolder
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+    [
+      'build',
+      '-t',
+      '$_REGION-docker.pkg.dev/$_PROJECT_ID/$_REPO_NAME/$_JOB_NAME:latest',
+      './daily_recomendation_mail_system'
+    ]
+
+# Step 2: Push image
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+    [
+      'push',
+      '$_REGION-docker.pkg.dev/$_PROJECT_ID/$_REPO_NAME/$_JOB_NAME:latest'
+    ]
+
+# Step 3: Update Cloud Run Job
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args:
+    [
+      'run',
+      'jobs',
+      'update',
+      '$_JOB_NAME',
+      '--image',
+      '$_REGION-docker.pkg.dev/$_PROJECT_ID/$_REPO_NAME/$_JOB_NAME:latest',
+      '--region',
+      '$_REGION'
+    ]
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+# ------------------------------------------------------------------------------
+# OPTIONAL: You can define default values for local testing below. 
+# In production, it is best to set these in the Cloud Build Trigger UI.
+# ------------------------------------------------------------------------------
+# substitutions:
+#   _REGION: 'your-gcp-region'        # e.g., europe-west1
+#   _REPO_NAME: 'your-ar-repo-name'   # e.g., daily-news-stock-mail
+#   _JOB_NAME: 'your-cloud-run-job'   # e.g., daily-job

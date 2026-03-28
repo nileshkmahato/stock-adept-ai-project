@@ -1,0 +1,57 @@
+# --------------------------------------------------
+# CLOUD BUILD PIPELINE FOR VM DEPLOYMENT
+# --------------------------------------------------
+# This pipeline automates deployment steps for a GCP VM:
+# 1. Copies the application code folder to a Google Cloud Storage bucket.
+# 2. Starts the specified Compute Engine VM instance.
+# 3. Syncs the code from the GCS bucket to the VM via SSH and rsync.
+# It uses substitution variables for bucket, VM name, zone, and SSH user,
+# and includes a timeout to handle VM boot delays. Logs are sent to Cloud Logging.
+# --------------------------------------------------
+
+steps:
+  # Step 1: Copy code folder to GCP Bucket
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gsutil'
+    args: ['-m', 'cp', '-r', './gfin-stock-pipeline-kafka/*', 'gs://$_GCS_BUCKET/']
+
+  # Step 2: Start the VM
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args: 
+      - 'compute'
+      - 'instances'
+      - 'start'
+      - '$_VM_NAME'
+      - '--zone=$_ZONE'
+      - '--project=$PROJECT_ID'
+
+  # Step 3: Wait for VM to be ready and sync code via SSH
+  # We use rsync over SSH to move files from the bucket to the VM 
+  # OR we can run a remote command to pull from the bucket directly.
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud compute ssh $_SSH_USER@$_VM_NAME \
+          --zone="$_ZONE" \
+          --project="$PROJECT_ID" \
+          --quiet \
+          --command="
+            mkdir -p \$_CODE_DIR
+            gsutil -m rsync -r gs://$_GCS_BUCKET \$_CODE_DIR
+            ls -l \$_CODE_DIR
+          "
+
+# Set a timeout just in case the VM takes a while to boot
+timeout: '1200s'
+
+substitutions:
+  _GCS_BUCKET: 'your-gcs-bucket-name/your-folder'
+  _VM_NAME: 'your-vm-instance-name'
+  _ZONE: 'us-central1-c'
+  _SSH_USER: 'your-ssh-username'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

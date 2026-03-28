@@ -1,0 +1,45 @@
+# This workflow reads an email template configuration from Cloud Storage,
+# replaces placeholder values using runtime input, and sends the rendered
+# email content to an HTTP email service endpoint.
+#
+# Expected input fields:
+# - RESOURCE_URL: URL or link to include in the email
+# - DASHBOARD_URL: Dashboard link to include in the email
+
+main:
+  params: [input]
+  steps:
+    - init:
+        assign:
+          - config_bucket: "your-config-bucket"
+          - config_object_path: "email-templates/start_notification.json"
+          - notification_service_url: "https://your-email-service-url"
+
+    - get_email_config:
+        call: googleapis.storage.v1.objects.get
+        args:
+          bucket: ${config_bucket}
+          object: ${text.url_encode(config_object_path)}
+          alt: "media"
+        result: email_config
+
+    - prepare_email_content:
+        assign:
+          - rendered_content_step1: ${text.replace_all(email_config.content1, "[RESOURCE_URL]", input.RESOURCE_URL)}
+          - rendered_content: ${text.replace_all(rendered_content_step1, "[DASHBOARD_URL]", input.DASHBOARD_URL)}
+
+    - send_email:
+        call: http.post
+        args:
+          url: ${notification_service_url}
+          auth:
+            type: OIDC
+          body:
+            to_mail: ${email_config.to_mail}
+            subject: ${email_config.subject}
+            content: ${rendered_content}
+            content_type: "html"
+        result: notification_response
+
+    - finish:
+        return: ${notification_response.body}

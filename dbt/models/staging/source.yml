@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+  - name: gfin_raw_data
+    database: "{{ env_var('GCP_PROJECT_ID') }}"
+    schema: stock_data_raw
+    tables:
+      - name: gfin_stock_ticks_ext
+      - name: yfin_stock_ticks_ext
+    
+  - name: gfin_raw_data_clean
+    database: "{{ env_var('GCP_PROJECT_ID') }}"
+    schema: stock_data_raw__staging
+    tables:
+      - name: stg_gfin_raw_clean_data

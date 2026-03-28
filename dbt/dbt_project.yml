@@ -1,0 +1,74 @@
+name: 'stock_adept_ai'
+version: '1.0.0'
+config-version: 2
+
+profile: 'default'
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  stock_adept_ai:
+    staging:
+      google_finance:
+        +schema: stock_data_raw__staging
+        +database: "{{ env_var('GCP_PROJECT_ID') }}"
+        +persist_docs:
+          relation: true
+          columns: true
+
+      yahoo_finance:
+        +schema: stock_data_raw__staging
+        +database: "{{ env_var('GCP_PROJECT_ID') }}"
+        +persist_docs:
+          relation: true
+          columns: true
+
+    intermediate:
+      silver_gfin:
+        +schema: stock_data_silver
+        +database: "{{ env_var('GCP_PROJECT_ID') }}"
+        +persist_docs:
+          relation: true
+          columns: true
+
+      silver_yfin:
+        +schema: stock_data_silver
+        +database: "{{ env_var('GCP_PROJECT_ID') }}"
+        +persist_docs:
+          relation: true
+          columns: true
+
+    gold:
+      indicators:
+        gfin:
+          +schema: stock_data_gold
+          +database: "{{ env_var('GCP_PROJECT_ID') }}"
+          +persist_docs:
+            relation: true
+            columns: true
+
+        yfin:
+          +schema: stock_data_gold
+          +database: "{{ env_var('GCP_PROJECT_ID') }}"
+          +persist_docs:
+            relation: true
+            columns: true
+
+      signals:
+        +schema: stock_data_gold
+        +database: "{{ env_var('GCP_PROJECT_ID') }}"
+        +persist_docs:
+          relation: true
+          columns: true
+      
+      dashboards:
+        +schema: stock_data_gold
+        +database: "{{ env_var('GCP_PROJECT_ID') }}"
+        +persist_docs:
+          relation: true
+          columns: true

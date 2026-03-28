@@ -1,0 +1,6 @@
+{
+    "TICKERS" : ["RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS", "ICICIBANK.NS"],
+    "HISTORICAL_START_DATE" : "2019-01-01",
+    "GCS_BUCKET" : "your-gcs-bucket-name-here",
+    "BASE_PATH" : "data_raw"
+}
